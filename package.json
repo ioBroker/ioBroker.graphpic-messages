@@ -1,0 +1,46 @@
+{
+  "name": "iobroker.gp-msgs",
+  "version": "0.5.0",
+  "description": "ioBroker gp-msgs Adapter",
+  "author": {
+    "name": "gh-god",
+    "email": "mail@mail.com"
+  },
+  "contributors": [
+    {
+      "name": "gh-god",
+      "email": "mail@mail.com"
+    }
+  ],
+  "homepage": "https://github.com/ioBroker/ioBroker.gp-msgs",
+  "license": "MIT",
+  "keywords": [
+    "ioBroker",
+    "gp-msgs",
+    "Smart Home",
+    "home automation"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ioBroker/ioBroker.gp-msgs"
+  },
+  "dependencies": {
+    "mssql": "^3.3.0",
+    "q": "^1.4.1"
+  },
+  "devDependencies": {
+    "grunt": "^0.4.5",
+    "grunt-replace": "^0.9.3",
+    "grunt-contrib-jshint": "^0.11.2",
+    "grunt-jscs": "^2.0.0",
+    "grunt-http": "^1.6.0",
+    "grunt-contrib-clean": "^0.6.0",
+    "grunt-contrib-compress": "^0.13.0",
+    "grunt-contrib-copy": "^0.8.0",
+    "grunt-exec": "^0.4.6"
+  },
+  "bugs": {
+    "url": "https://github.com/ioBroker/ioBroker.gp-msgs/issues"
+  },
+  "readmeFilename": "README.md"
+}

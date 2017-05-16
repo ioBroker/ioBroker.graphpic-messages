@@ -1,0 +1,228 @@
+<html>
+<header>
+    <!-- these 4 files always have to be included -->
+    <link rel="stylesheet" type="text/css" href="../../lib/css/themes/jquery-ui/redmond/jquery-ui.min.css"/>
+    <!--link rel="stylesheet" type="text/css" href="../../lib/css/jqGrid/ui.jqgrid-4.5.4.css"/-->
+    <link rel="stylesheet" type="text/css" href="cron/jquery-cron.css"/>
+    <link rel="stylesheet" type="text/css" href="css/tab.css"/>
+
+    <script type="text/javascript" src="../../lib/js/jquery-1.11.1.min.js"></script>
+    <script type="text/javascript" src="../../lib/js/jquery-ui.min.js"></script>
+    <script type="text/javascript" src="../../socket.io/socket.io.js"></script>
+    <script type="text/javascript" src="../../lib/js/loStorage.js"></script>
+    <!--script type="text/javascript" src="../../lib/js/jqGrid/jquery.jqGrid-4.5.4.min.js"></script>
+    <script type="text/javascript" src="../../lib/js/jqGrid/grid.locale-all.js"></script-->
+    <script type="text/javascript" src="../../lib/js/ace-1.2.0/ace.js"></script>
+    <script type="text/javascript" src="../../js/translate.js"></script>
+    <script type="text/javascript" src="words.js"></script>
+    <script type="text/javascript" src="js/jquery.jqpagination.min.js"></script>
+
+    <script type="text/javascript" src="../../lib/js/jquery.fancytree-all.min.js"></script>
+    <script type="text/javascript" src="../../lib/js/colResizable-1.5.min.js"></script>
+    <!--script src="lib/js/jquery.fancytree.js" type="text/javascript"></script>
+    <script src="lib/js/jquery.fancytree.table.js" type="text/javascript"></script>
+    <script src="lib/js/jquery.fancytree.gridnav.js" type="text/javascript"></script>
+    <script src="lib/js/jquery.fancytree.filter.js" type="text/javascript"></script>
+    <script src="lib/js/jquery.fancytree.edit.js" type="text/javascript"></script-->
+    <script type="text/javascript" src="../../js/selectID.js"></script>
+
+    <script type="text/javascript" src="cron/jquery-cron.js"></script>
+
+    <style>
+        body {
+            font-size: 11px;
+            margin: 0;
+            padding: 0;
+            height: 100%;
+        }
+
+        .ui-state-active a, .ui-state-active a:link, .ui-state-active a:visited, .ui-state-hover a, .ui-state-hover a:link, .ui-state-hover a:visited {
+            outline: none;
+        }
+
+        .ui-jqgrid tr.jqgrow td {
+            font-size: 12px;
+        }
+
+        .ui-jqgrid .ui-pg-input {
+            height: 20px !important;
+        }
+
+        .ui-jqgrid-titlebar-close {
+            display: none !important;
+        }
+
+        #edit-script-source {
+            font-size: 12px;
+            width: 600px;
+            height: 240px;
+            padding: 0;
+            margin: 0;
+            border: 1px solid grey;
+            outline: none;
+            box-shadow: none;
+            resize: none;
+        }
+
+        .no-space {
+            border: 0px !important;
+            margin: 0px;
+            padding: 0px;
+            border-spacing: 0px;
+            border-image-width: 0px;
+        }
+
+        #script-main .ui-resizable-e {
+            cursor: e-resize;
+            width: 8px;
+            right: 0;
+            top: 0;
+            bottom: 0;
+            background-color: gray;
+        }
+
+        #script-main .ui-resizable-s {
+            cursor: s-resize;
+            height: 8px;
+            right: 0;
+            left: 0;
+            bottom: 0;
+            background-color: gray;
+        }
+
+        .warn, .error, .info, .debug {
+            font-size: small;
+            font-family: Arial;
+        }
+
+        .info {
+            color: black;
+        }
+
+        .warn {
+            color: orange;
+        }
+
+        .error {
+            color: red;
+        }
+
+        .debug {
+            color: darkgray;
+        }
+
+    </style>
+
+</header>
+<body>
+
+<div id="tabs">
+    <ul>
+        <li><a href="#tabs-1" class="translate">Archiv</a></li>
+        <li><a href="#tabs-2" class="translate">Aktuell</a></li>
+    </ul>
+    <div id="tabs-1">
+
+        <div id="grid-log" class="ui-jqgrid" style="display: block;">
+            <div id="wrap"
+                 class="ui-jqgrid-titlebar ui-jqgrid-caption ui-widget-header ui-corner-top ui-helper-clearfix">
+                <table style="padding: 0; margin: 0; border-spacing: 0"
+                       class="ui-jqgrid-titlebar ui-jqgrid-caption ui-widget-header ui-corner-top ui-helper-clearfix">
+                    <tr>
+                        <td width="100%"><span class="ui-jqgrid-title translate"></span></td>
+                        <td>
+                            <div class="pagination">
+                                <a href="#" class="first" data-action="first">&laquo;</a>
+                                <a href="#" class="previous" data-action="previous">&lsaquo;</a>
+                                <input type="text" readonly="readonly" data-max-page="40"/>
+                                <a href="#" class="next" data-action="next">&rsaquo;</a>
+                                <a href="#" class="last" data-action="last">&raquo;</a>
+                            </div>
+                        </td>
+                        <td id="log-size"
+                            style="width: 500px; font-size: 10px; font-weight: normal; white-space: nowrap;"></td>
+                        <!--<td>-->
+                        <!--<button id="log-pause" class="translateT" title="Pause output"></button>-->
+                        <!--</td>-->
+                        <!--<td>-->
+                        <!--<button id="log-refresh" class="translateT" title="Refresh log"></button>-->
+                        <!--</td>-->
+                        <!--<td>-->
+                        <!--<button id="log-copy" class="translateT" title="Copy log"></button>-->
+                        <!--</td>-->
+                        <!--<td>-->
+                        <!--<button id="log-clear" class="translateT" title="Clear log"></button>-->
+                        <!--</td>-->
+                        <!--<td>-->
+                        <!--<button id="log-clear-on-disk" class="translateT" title="Clear on disk permanent"></button>-->
+                        <!--</td>-->
+                    </tr>
+                </table>
+            </div>
+            <table id="log-outer-header" style="width: 100%; border-collapse: collapse;"
+                   class="ui-widget ui-state-default ui-corner-bottom">
+                <thead>
+                <tr class="ui-jqgrid-labels ui-jqgrid-view ui-jqgrid-htable">
+                    <!--<th class="log-column-1-header ui-state-default ui-th-column ui-th-ltr" style="text-align: right">-->
+                    <!--<select id="log-filter-host"></select></th>-->
+                    <th class="log-column-time-header ui-state-default ui-th-column ui-th-ltr translate">Coming</th>
+                    <th class="log-column-time-header ui-state-default ui-th-column ui-th-ltr translate">Going</th>
+                    <th class="log-column-duration-header ui-state-default ui-th-column ui-th-ltr translate">Duration
+                    </th>
+                    <th class="log-column-operand-header ui-state-default ui-th-column ui-th-ltr translate">Operand</th>
+                    <th class="log-column-text-header ui-state-default ui-th-column ui-th-ltr translate">Text</th>
+                    <th class="log-column-class-header ui-state-default ui-th-column ui-th-ltr translate">Class</th>
+
+                    <!--<th class="log-column-3-header ui-state-default ui-th-column ui-th-ltr"><select-->
+                    <!--id="log-filter-severity">-->
+                    <!--<option value="" class="translate">debug</option>-->
+                    <!--<option value="info" class="translate">info</option>-->
+                    <!--<option value="warn" class="translate">warn</option>-->
+                    <!--<option value="error" class="translate">error</option>-->
+                    <!--</select></th>-->
+                    <!--<th class="log-column-4-header ui-state-default ui-th-column ui-th-ltr"-->
+                    <!--style="text-align: left"><span-->
+                    <!--class="translate" style="padding-right: 10px;padding-left: 5px">message</span><input-->
+                    <!--id="log-filter-message" type="text" size="10"/>-->
+                    <!--<button id="log-filter-message-clear">x</button>-->
+                    <!--</th>-->
+                </tr>
+                </thead>
+            </table>
+            <div id="grid-log-inner" style="width: 100%; overflow-y: hidden;">
+                <table id="log-outer" style="width: 100%; border-collapse: collapse; margin-top: -1px"
+                       class="ui-widget ui-state-default ui-corner-bottom">
+                    <tbody id="log-table">
+
+                    </tbody>
+                </table>
+
+            </div>
+        </div>
+
+    </div>
+
+    <div id="tabs-2">
+
+
+    </div>
+</div>
+
+<div id="connecting" style="left:50%; top:50%;position: fixed;"><img class="wait-rotate" src="img/gear.png"/></div>
+<div id="dialog-message" title="Message" style="display: none">
+    <p>
+        <span id="dialog-message-icon" class="ui-icon ui-icon-circle-check"
+              style="float:left; margin:0 7px 50px 0;"></span>
+        <span id="dialog-message-text"></span>
+    </p>
+</div>
+<div id="dialog-confirm" title="Question" style="display: none">
+    <p>
+        <span id="dialog-confirm-icon" class="ui-icon ui-icon-circle-check"
+              style="float: left; margin:0 7px 50px 0;"></span>
+        <span id="dialog-confirm-text"></span>
+    </p>
+</div>
+<script type="text/javascript" src="tab.js"></script>
+</body>
+</html>
