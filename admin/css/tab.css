@@ -285,6 +285,47 @@ table#events {
 }
 
 /* ------------ Log table ------------ */
+
+.log-column-id {
+    width: 63px;
+    font-weight: normal;
+}
+.log-column-id-header {
+    width: 60px;
+}
+
+.log-column-50 {
+    width: 53px;
+    font-weight: normal;
+}
+.log-column-50-header {
+    width: 50px;
+}
+
+
+.log-column-60 {
+    width: 63px;
+    font-weight: normal;
+}
+.log-column-60-header {
+    width: 60px;
+}
+
+.log-column-80 {
+    width: 83px;
+    font-weight: normal;
+}
+.log-column-80-header {
+    width: 80px;
+}
+
+.log-column-100 {
+    width: 100px;
+    font-weight: normal;
+}
+.log-column-100-header {
+    width: 100px;
+}
 .log-column-1 {
     width: 103px;
     text-align: right;
@@ -321,9 +362,13 @@ table#events {
     width: 95px;
 }
 
+.log-column-group {
+    font-weight: normal;
+    width: 150px;
+}
 .log-column-class {
     font-weight: normal;
-    width: 90px;
+    width: 100px;
 }
 .log-column-time-header {
     width: 180px;
@@ -338,7 +383,11 @@ table#events {
 
 
 .log-column-class-header {
-    width: 90px;
+    width: 100px;
+}
+
+.log-column-group-header {
+    width: 150px;
 }
 
 .log-column-1-header {

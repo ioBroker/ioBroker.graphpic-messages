@@ -113,26 +113,64 @@ var dbConfig = {
 };
 var lastMessagesVersion = -1;
 
-function executeQuery(query) {
+function traceError(error) {
+    adapter.log.error(error.message);
+}
+var connectionPromise = q.defer();
+function getConnection() {
+    if (!sqlConnection) {
+        sqlConnection = new sql.Connection(dbConfig, function (error) {
+            if (error) {
+                traceError(error);
+                sqlConnection = null;
+                connectionPromise = q.defer();
+            }
+            else {
+                connectionPromise.resolve(sqlConnection);
+            }
+        })
+    }
+
+    return connectionPromise.promise;
+}
+
+function executeQuery(query, retry) {
     var got = q.defer();
-    sql
-        .connect(dbConfig)
+
+    var handleError = function (err) {
+        if (!retry) {
+            setTimeout(function () {
+                executeQuery(query, true);
+            }, 500);
+        }
+        got.reject(err);
+    };
+
+    //
+    // sql
+    //     .connect(dbConfig)
+    getConnection()
         .then(function () {
                 new sql
-                    .Request()
+                    // .Request()
+                    .Request(sqlConnection)
                     .query(query)
                     .then(function (reply) {
                         got.resolve(reply);
                     })
                     .catch(function (err) {
                         // ... error checks
-                        got.reject(err);
+                        handleError(err);
                     });
             }
         )
+        .fail(function (err) {
+            // ... error checks
+            handleError(err);
+        })
         .catch(function (err) {
             // ... error checks
-            got.reject(err);
+            handleError(err);
         });
 
     return got.promise;
@@ -140,8 +178,7 @@ function executeQuery(query) {
 
 var messageClassConfig = [];
 function getMessageClassConfig() {
-    var queryString = 'select * from AL_CLASSES';
-    executeQuery(queryString)
+    executeQuery('select * from AL_CLASSES')
         .then(function (reply) {
             messageClassConfig = reply;
         })
@@ -162,56 +199,152 @@ function getClassConfigForItem(item) {
 
     return null;
 }
-var lastVersionGetterCount = 0;
-function getLastMessagesVersion() {
+
+function enrichItemsWithColors(recordset) {
+    recordset.forEach(function (item) {
+            var classConfig = getClassConfigForItem(item);
+            if (classConfig) {
+                if (item.Going) {
+                    item.bc = classConfig.BC_ENDED;
+                    item.fc = classConfig.FC_ENDED;
+                } else if (item.TIME_RECOGNITION) {
+                    item.bc = classConfig.BC_RECOGNIZED;
+                    item.fc = classConfig.FC_RECOGNIZED;
+                } else if (item.TIME_QUITTING) {
+                    item.bc = classConfig.BC_QUITTED;
+                    item.fc = classConfig.FC_QUITTED;
+                } else {
+                    item.bc = classConfig.BC_STARTED;
+                    item.fc = classConfig.FC_STARTED;
+                }
+            }
+        }
+    );
+
+    return recordset;
+}
+
+function enableDbChangeTracking() {
     var got = q.defer();
 
-    var finishedHandler = function (err) {
-        if (err) {
-            adapter.log.error('Error getting table last version. ' + err.message);
-        }
-
-        lastVersionGetterCount++;
-        if (lastVersionGetterCount < 5) {
-            setTimeout(getLastMessagesVersion, 1000);
-        }
-        else {
-            adapter.log.error('Stopped trying to get table last version.');
-            got.reject(new Error('unable to get last change version. check DB permissions for configured user'));
-        }
+    var errorHandler = function (error) {
+        var message = 'Error enabling change tracking for database [' + dbConfig.database + ']. Check DB permissions for configured user. ';
+        adapter.log.error(message + error.message);
+        got.reject(new Error(message));
     };
 
-    sql
-        .connect(dbConfig)
-        .then(function () {
-                new sql
-                    .Request()
-                    .query('select CHANGE_TRACKING_CURRENT_VERSION() as version')
-                    .then(function (reply) {
-                        lastMessagesVersion = reply[0].version;
-                        got.resolve();
-                    })
-                    .catch(function (err) {
-                        // ... error checks
-                        finishedHandler(err);
-                    });
+    executeQuery("SELECT * FROM sys.change_tracking_databases WHERE database_id=DB_ID('" + dbConfig.database + "')")
+        .then(function (reply) {
+            if (reply && Array.isArray(reply) && reply.length > 0) {
+                return q.fcall(function () {
+                    return 0;
+                });
             }
-        )
-        .catch(function (err) {
+            else {
+                return executeQuery('ALTER DATABASE ' + dbConfig.database + ' SET CHANGE_TRACKING = ON');
+            }
+        })
+        .then(function () {
+            got.resolve();
+        })
+        .fail(function (error) {
             // ... error checks
-            finishedHandler(err);
+            errorHandler(error);
+        })
+        .catch(function (error) {
+            // ... error checks
+            errorHandler(error);
         });
+
     return got.promise;
 }
 
+function enableTableChangeTracking(table) {
+    var got = q.defer();
+
+    var errorHandler = function (error) {
+        var message = 'Error enabling change tracking for table [' + table + ']. Check DB permissions for configured user. ';
+        adapter.log.error(message + error.message);
+        got.reject(new Error(message));
+    };
+
+    executeQuery('select sys.schemas.name as Schema_name, sys.tables.name as Table_name from sys.change_tracking_tables ' +
+        'join sys.tables on sys.tables.object_id = sys.change_tracking_tables.object_id ' +
+        'join sys.schemas on sys.schemas.schema_id = sys.tables.schema_id')
+        .then(function (reply) {
+            var enabled = false;
+            if (reply && Array.isArray(reply) && reply.length > 0) {
+                enabled = reply.filter(function (row) {
+                        return row['Table_name'] == table.replace('[', '').replace(']', '');
+                    }).length > 0;
+            }
+
+            if (enabled) {
+                return q.fcall(function () {
+                    return 0;
+                });
+            }
+            else {
+                return executeQuery('ALTER TABLE ' + table + ' ENABLE CHANGE_TRACKING');
+            }
+        })
+        .then(function () {
+            got.resolve();
+        })
+        .fail(function (error) {
+            // ... error checks
+            errorHandler(error);
+        })
+        .catch(function (error) {
+            // ... error checks
+            errorHandler(error);
+        });
+
+    return got.promise;
+}
+
+function getLastMessagesVersion() {
+    var got = q.defer();
+
+    var errorHandler = function (error) {
+        adapter.log.error('Error getting table last version. ' + error.message);
+        got.reject(new Error('unable to get last change version. check DB permissions for configured user'));
+    };
+
+    executeQuery('select CHANGE_TRACKING_CURRENT_VERSION() as version')
+        .then(function (reply) {
+            lastMessagesVersion = reply[0].version;
+            got.resolve();
+        })
+        .fail(function (error) {
+            // ... error checks
+            errorHandler(error);
+        })
+        .catch(function (error) {
+            // ... error checks
+            errorHandler(error);
+        });
+
+    return got.promise;
+}
+var getTableChangesRetryCount = 0;
+var maxGetTableChangesRetryCount = 10;
 function getTableChanges() {
     var pollTime = 500;
-    if (lastMessagesVersion == -1) return;
-    var got = function (err) {
-        if (err) {
-            adapter.log.error('Error getting table changes. ' + err.message);
+    if (lastMessagesVersion == -1) {
+        adapter.log.error('Stop observing changes due to unknown last change version.');
+        return;
+    }
+    var got = function (error) {
+        if (error) {
+            adapter.log.error('Error getting table changes. ' + error.message);
+            getTableChangesRetryCount++;
         }
-        setTimeout(getTableChanges, pollTime);
+
+        if (getTableChangesRetryCount < maxGetTableChangesRetryCount) {
+            //adapter.log.info('Next try to get table changes in ' + pollTime + 'ms');
+            setTimeout(getTableChanges, pollTime);
+        }
     };
 
     var query =
@@ -219,40 +352,50 @@ function getTableChanges() {
         'select * from CHANGETABLE (CHANGES ' + ARCHIVE_TABLE + ',' + lastMessagesVersion + ') xx ' +
         'left outer join rownumbers rn on rn.[ID]=xx.[ID]';
 
-    sql
-        .connect(dbConfig)
-        .then(function () {
-                new sql
-                    .Request()
-                    .query(query)
-                    .then(function (reply) {
-                        if (Array.isArray(reply) && reply.length > 0) {
-                            // changes detected
-                            lastMessagesVersion = Math.max.apply(Math, reply.map(function (item) {
-                                return item.SYS_CHANGE_VERSION;
-                            }));
-                            var changedPages = reply.map(function (item) {
-                                return Math.floor((parseInt(item.RowNo) + pageSize - 1) / pageSize);
-                            });
-                            changedPages.forEach(function (page) {
-                                adapter.setState('pageChanged', page);
-                            });
-                        }
-                        got();
-                    })
-                    .catch(function (err) {
-                        got(err);
-                    });
+    executeQuery(query, true)
+        .then(function (reply) {
+            getTableChangesRetryCount = 0;
+            if (Array.isArray(reply) && reply.length > 0) {
+                // changes detected
+                lastMessagesVersion = Math.max.apply(Math, reply.map(function (item) {
+                    return item.SYS_CHANGE_VERSION;
+                }));
+                var changedPages = reply.map(function (item) {
+                    return Math.floor((parseInt(item.RowNo) + pageSize - 1) / pageSize);
+                });
+                changedPages.forEach(function (page) {
+                    adapter.setState('pageChanged', page);
+                });
+
+                // var totalChanged = reply.filter(function (item) {
+                //         return item.SYS_CHANGE_OPERATION != 'U';
+                //     }).length > 0;
+                //
+                // if (totalChanged) {
+                //     adapter.setState('totalChanged', lastMessagesVersion);
+                // }
+
+                adapter.setState('totalChanged', lastMessagesVersion);
+
             }
-        )
-        .catch(function (err) {
-            // ... error checks
-            got(err);
+            got();
+        })
+        .fail(function (error) {
+            got(error);
+        })
+        .catch(function (error) {
+            got(error);
         });
 }
 
 function startObserving() {
-    getLastMessagesVersion()
+    enableDbChangeTracking()
+        .then(function () {
+            return enableTableChangeTracking(ARCHIVE_TABLE);
+        })
+        .then(function () {
+            return getLastMessagesVersion();
+        })
         .then(function () {
             getTableChanges();
         })
@@ -266,97 +409,151 @@ function startObserving() {
 
 function getMessageCount() {
     var got = q.defer();
-    sql
-        .connect(dbConfig)
-        .then(function () {
-                new sql
-                    .Request()
-                    .query('select count(*) as recordCount from ' + ARCHIVE_TABLE)
-                    .then(function (reply) {
+    // executeQuery('select count(*) as recordCount from ' + ARCHIVE_TABLE)
 
-                        var remainder = reply[0].recordCount % pageSize;
-                        var pageCount = Math.floor(reply[0].recordCount / pageSize) + (remainder > 0 ? 1 : 0);
-
-                        got.resolve({
-                            totalCount: reply[0].recordCount,
-                            pageCount: pageCount
-                        });
-                    })
-                    .catch(function (err) {
-                        // ... error checks
-                        got.reject(err);
-                    });
-            }
-        )
+    executeQuery('SELECT count(*) as recordCount from (select * from AL_ARCHIVE_EXT WHERE PENDING_IDX IS NOT NULL AND SHOWACT = 1) xx')
+        .then(function (reply) {
+            var remainder = reply[0].recordCount % pageSize;
+            var pageCount = Math.floor(reply[0].recordCount / pageSize) + (remainder > 0 ? 1 : 0);
+            got.resolve({
+                totalCount: reply[0].recordCount,
+                pageCount: pageCount
+            });
+        })
+        .fail(function (err) {
+            // ... error checks
+            got.reject(err);
+        })
         .catch(function (err) {
             // ... error checks
             got.reject(err);
         });
+    return got.promise;
+}
+
+function getMessages(message) {
+    var page = message.page || 1;
+    var table = ARCHIVE_VIEW;
+    var skip = (page - 1) * pageSize;
+
+    // var query = 'select top ' + pageSize + ' * from ' +
+    //     '(select t.[ID], [TIME_START] as [Coming], [TIME_END] as [Going], ' +
+    //     'CONVERT(varchar, DATEADD(s, [DURATION_BRUTTO], 0), 108) as [Duration], ' +
+    //     '[OPERAND] as [Operand], [TEXT_0] as [Text], ac.NAME_0 as [Class], ' +
+    //     'AL_CLASS, TIME_QUITTING, TIME_RECOGNITION, ROW_NUMBER() over (order by t.[ID]) as r_n_n FROM '
+    //     + table + ' t left outer join [AL_CLASSES] ac on ac.[ID]=t.[AL_CLASS]) xx where r_n_n >' + skip + ' order by ID';
+
+    var query = 'select top ' + pageSize + ' * from ' +
+        '(select t.[ID], [TIME_START] as [Coming], [TIME_END] as [Going],' +
+        'ag.NAME_0 as [Group], ' +
+        '[OPERAND] as [Operand], [TEXT_0] as [Text], ac.NAME_0 as [Class], ' +
+        'AL_CLASS, AL_GROUP, TIME_QUITTING, TIME_RECOGNITION, SHOWACT, PENDING_IDX, ROW_NUMBER() over (order by t.[ID]) as r_n_n FROM ' + table + ' t ' +
+        'left outer join [AL_CLASSES] ac on ac.[ID] = t.[AL_CLASS] ' +
+        'left outer join [AL_GROUPS] ag on ag.[ID] = t.AL_GROUP ) xx ' +
+        'where r_n_n >' + skip + ' AND PENDING_IDX IS NOT NULL AND SHOWACT = 1 order by ID';
+
+    var got = q.defer();
+    executeQuery(query)
+        .then(function (recordset) {
+                // assign colors to messages
+                if (messageClassConfig.length) {
+
+                    enrichItemsWithColors(recordset);
+
+                    // recordset.forEach(function (item) {
+                    //         var classConfig = getClassConfigForItem(item);
+                    //         if (classConfig) {
+                    //             if (item.TIME_RECOGNITION) {
+                    //                 item.bc = classConfig.BC_RECOGNIZED;
+                    //                 item.fc = classConfig.FC_RECOGNIZED;
+                    //             } else if (item.TIME_QUITTING) {
+                    //                 item.bc = classConfig.BC_QUITTED;
+                    //                 item.fc = classConfig.FC_QUITTED;
+                    //             } else if (item.Going) {
+                    //                 item.bc = classConfig.BC_ENDED;
+                    //                 item.fc = classConfig.FC_ENDED;
+                    //
+                    //             } else {
+                    //                 item.bc = classConfig.BC_STARTED;
+                    //                 item.fc = classConfig.FC_STARTED;
+                    //             }
+                    //         }
+                    //     }
+                    // );
+                }
+                got.resolve(recordset);
+            }
+        )
+        .fail(function (err) {
+            // ... error checks
+            got.reject(err);
+        })
+        .catch(function (err) {
+            // ... error checks
+            got.reject(err);
+        });
+
 
     return got.promise;
 }
 
-var lastState = true;
-function getMessages(message) {
 
-    adapter.setState('testVariable', lastState);
-    lastState = !lastState;
-    var page = message.page || 1;
-    var table = ARCHIVE_VIEW;
+function getArchiveMessages(message) {
+    var query = 'select * from '
+        + '(select top 1000 t.[ID], [TIME_START] as [Coming], [TIME_END] as [Going], ' +
+        'CONVERT(varchar, DATEADD(s, [DURATION_BRUTTO], 0), 108) as [Duration], ' +
+        '[OPERAND] as [Operand], [TEXT_0] as [Text], ac.NAME_0 as [Class], ac.BC_ARCHIVED as bc, ac.FC_ARCHIVED as fc, ' +
+        'AL_CLASS, TIME_QUITTING, TIME_RECOGNITION FROM AL_ARCHIVE_EXT t ' +
+        'left outer join [AL_CLASSES] ac on ac.[ID]=t.[AL_CLASS]' +
+        'WHERE ARCHIVE_IDX > 0 order by t.[ID] desc) xx ' +
+        'ORDER BY [ID]';
 
-    var query = 'select top ' + pageSize + ' * from ' +
-        '(select t.[ID], [TIME_START] as [Coming], [TIME_END] as [Going], ' +
-        'CONVERT(varchar, DATEADD(ms, [DURATION_BRUTTO] * 1000, 0), 108) as [Duration], ' +
-        '[OPERAND] as [Operand], [TEXT_0] as [Text], ac.NAME_0 as [Class], ' +
-        'AL_CLASS, TIME_QUITTING, TIME_RECOGNITION, ROW_NUMBER() over (order by t.[ID]) as r_n_n FROM '
-        + table + ' t left outer join [GP8].[dbo].[AL_CLASSES] ac on ac.[ID]=t.[AL_CLASS]) xx where r_n_n > @skip order by ID';
-
-    var skip = (page - 1) * pageSize;
     var got = q.defer();
-    sql
-        .connect(dbConfig)
-        .then(function () {
-                new sql
-                    .Request()
-                    .input('skip', sql.Int, skip)
-                    .query(query)
-                    .then(function (recordset) {
-
-                            // assign colors to messages
-                            if (messageClassConfig.length) {
-                                recordset.forEach(function (item) {
-                                        var classConfig = getClassConfigForItem(item);
-                                        if (item.TIME_RECOGNITION) {
-                                            item.bc = classConfig.BC_RECOGNIZED;
-                                            item.fc = classConfig.FC_RECOGNIZED;
-                                        } else if (item.TIME_QUITTING) {
-                                            item.bc = classConfig.BC_QUITTED;
-                                            item.fc = classConfig.FC_QUITTED;
-                                        } else if (item.Going) {
-                                            item.bc = classConfig.BC_ENDED;
-                                            item.fc = classConfig.FC_ENDED;
-
-                                        } else {
-                                            item.bc = classConfig.BC_STARTED;
-                                            item.fc = classConfig.FC_STARTED;
-                                        }
-                                    }
-                                );
-                            }
-
-                            got.resolve(recordset);
-                        }
-                    )
-                    .catch(function (err) {
-                        // ... error checks
-                        got.reject(err);
-                    });
+    executeQuery(query)
+        .then(function (recordset) {
+                // assign colors to messages
+                if (messageClassConfig.length) {
+                    enrichItemsWithColors(recordset);
+                }
+                got.resolve(recordset);
             }
         )
+        .fail(function (err) {
+            // ... error checks
+            got.reject(err);
+        })
         .catch(function (err) {
             // ... error checks
             got.reject(err);
         });
+
+
+    return got.promise;
+}
+
+function getProtocol(message) {
+    var top = message.top || 1000;
+
+    var query = 'SELECT top ' + top +
+        '[ID], [TIME_ID] as Time ,[AL_ACTION] as Action, [SOURCE] as Source, [HANDLED_IDX] as Handled, [AL_GROUP] as [Group],' +
+        '[OPERAND] as Operand, [ARCHIVE_ID] as ArchId, [ARV_ARCHIVE_ID] as ChangedArchId, [ARV_AL_CLASS] as Class' +
+        ',[EXT_DEF] as ExtProperty,[ERROR_MESSAGE] as Text FROM [AL_PROTOCOL] order by ID desc';
+
+    var got = q.defer();
+    executeQuery(query)
+        .then(function (recordset) {
+                got.resolve(recordset);
+            }
+        )
+        .fail(function (err) {
+            // ... error checks
+            got.reject(err);
+        })
+        .catch(function (err) {
+            // ... error checks
+            got.reject(err);
+        });
+
 
     return got.promise;
 }
@@ -393,8 +590,14 @@ function processMessage(msg) {
         case 'getMessages':
             fn = getMessages;
             break;
+        case 'getArchiveMessages':
+            fn = getArchiveMessages;
+            break;
         case 'getMessageCount':
             fn = getMessageCount;
+            break;
+        case 'getProtocol':
+            fn = getProtocol;
             break;
     }
 
@@ -405,54 +608,6 @@ function processMessage(msg) {
     // commons.sendResponse(adapter, msg, options, [], startTime);
 }
 
-
-// function sendResponse(adapter, msg, options, data, startTime) {
-//     var aggregateData;
-//     if (typeof data === 'string') {
-//         adapter.log.error(data);
-//         return adapter.sendTo(msg.from, msg.command, {
-//             result:     [],
-//             step:       0,
-//             error:      data,
-//             sessionId:  options.sessionId
-//         }, msg.callback);
-//     }
-//
-//     if (options.count && !options.start && data.length > options.count) {
-//         data.splice(0, data.length - options.count);
-//     }
-//     if (data[0]) {
-//         options.start = options.start || data[0].ts;
-//
-//         if (!options.aggregate || options.aggregate === 'onchange' || options.aggregate === 'none') {
-//             aggregateData = {result: data, step: 0, sourceLength: data.length};
-//
-//             // convert ack from 0/1 to false/true
-//             if (options.ack && aggregateData.result) {
-//                 for (var i = 0; i < aggregateData.result.length; i++) {
-//                     aggregateData.result[i].ack = !!aggregateData.result[i].ack;
-//                 }
-//             }
-//             options.result = aggregateData.result;
-//             beautify(options);
-//         } else {
-//             initAggregate(options);
-//             aggregateData = aggregation(options, data);
-//             finishAggregation(options);
-//         }
-//
-//         adapter.log.info('Send: ' + aggregateData.result.length + ' of: ' + aggregateData.sourceLength + ' in: ' + (new Date().getTime() - startTime) + 'ms');
-//         adapter.sendTo(msg.from, msg.command, {
-//             result: aggregateData.result,
-//             step:   aggregateData.step,
-//             error:      null,
-//             sessionId:  options.sessionId
-//         }, msg.callback);
-//     } else {
-//         adapter.log.info('No Data');
-//         adapter.sendTo(msg.from, msg.command, {result: [], step: null, error: null, sessionId: options.sessionId}, msg.callback);
-//     }
-// }
 
 function main() {
 
@@ -491,7 +646,15 @@ function main() {
         },
         native: {}
     });
-
+    adapter.setObject('totalChanged', {
+        type: 'state',
+        common: {
+            name: 'totalChanged',
+            type: 'int',
+            role: 'indicator'
+        },
+        native: {}
+    });
     // in this gp-msgs all states changes inside the adapters namespace are subscribed
     adapter.subscribeStates('*');
 
@@ -533,6 +696,11 @@ function main() {
 
     schema.setConfig(dbConfig);
 
-     getMessageClassConfig();
+    getMessageClassConfig();
     startObserving();
 }
+
+process.on('uncaughtException', function (err) {
+    console.error(err.stack);
+    // process.exit();
+});

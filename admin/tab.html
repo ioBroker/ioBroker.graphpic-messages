@@ -118,18 +118,19 @@
 
 <div id="tabs">
     <ul>
-        <li><a href="#tabs-1" class="translate">Archiv</a></li>
-        <li><a href="#tabs-2" class="translate">Aktuell</a></li>
+        <li><a href="#tabs-1" class="translate">Aktuell</a></li>
+        <li><a href="#tabs-2" class="translate">Archiv</a></li>
+        <li><a href="#tabs-3" class="translate">Protokoll</a></li>
     </ul>
     <div id="tabs-1">
 
         <div id="grid-log" class="ui-jqgrid" style="display: block;">
             <div id="wrap"
                  class="ui-jqgrid-titlebar ui-jqgrid-caption ui-widget-header ui-corner-top ui-helper-clearfix">
-                <table style="padding: 0; margin: 0; border-spacing: 0"
+                <table style="padding: 0; margin: 0; border-spacing: 0; border: none;"
                        class="ui-jqgrid-titlebar ui-jqgrid-caption ui-widget-header ui-corner-top ui-helper-clearfix">
                     <tr>
-                        <td width="100%"><span class="ui-jqgrid-title translate"></span></td>
+                        <!--<td width="100%"><span class="ui-jqgrid-title translate"></span></td>-->
                         <td>
                             <div class="pagination">
                                 <a href="#" class="first" data-action="first">&laquo;</a>
@@ -141,21 +142,6 @@
                         </td>
                         <td id="log-size"
                             style="width: 500px; font-size: 10px; font-weight: normal; white-space: nowrap;"></td>
-                        <!--<td>-->
-                        <!--<button id="log-pause" class="translateT" title="Pause output"></button>-->
-                        <!--</td>-->
-                        <!--<td>-->
-                        <!--<button id="log-refresh" class="translateT" title="Refresh log"></button>-->
-                        <!--</td>-->
-                        <!--<td>-->
-                        <!--<button id="log-copy" class="translateT" title="Copy log"></button>-->
-                        <!--</td>-->
-                        <!--<td>-->
-                        <!--<button id="log-clear" class="translateT" title="Clear log"></button>-->
-                        <!--</td>-->
-                        <!--<td>-->
-                        <!--<button id="log-clear-on-disk" class="translateT" title="Clear on disk permanent"></button>-->
-                        <!--</td>-->
                     </tr>
                 </table>
             </div>
@@ -166,9 +152,7 @@
                     <!--<th class="log-column-1-header ui-state-default ui-th-column ui-th-ltr" style="text-align: right">-->
                     <!--<select id="log-filter-host"></select></th>-->
                     <th class="log-column-time-header ui-state-default ui-th-column ui-th-ltr translate">Coming</th>
-                    <th class="log-column-time-header ui-state-default ui-th-column ui-th-ltr translate">Going</th>
-                    <th class="log-column-duration-header ui-state-default ui-th-column ui-th-ltr translate">Duration
-                    </th>
+                    <th class="log-column-group-header ui-state-default ui-th-column ui-th-ltr translate">Group</th>
                     <th class="log-column-operand-header ui-state-default ui-th-column ui-th-ltr translate">Operand</th>
                     <th class="log-column-text-header ui-state-default ui-th-column ui-th-ltr translate">Text</th>
                     <th class="log-column-class-header ui-state-default ui-th-column ui-th-ltr translate">Class</th>
@@ -204,6 +188,80 @@
 
     <div id="tabs-2">
 
+        <div id="archive-grid-log" class="ui-jqgrid" style="display: block;">
+            <div id="archive-wrap"
+                 class="ui-jqgrid-titlebar ui-jqgrid-caption ui-widget-header ui-corner-top ui-helper-clearfix">
+                <table style="padding: 0; margin: 0; border-spacing: 0"
+                       class="ui-jqgrid-titlebar ui-jqgrid-caption ui-widget-header ui-corner-top ui-helper-clearfix">
+                    <tr>
+                    </tr>
+                </table>
+            </div>
+            <table id="archive-log-outer-header" style="width: 100%; border-collapse: collapse;"
+                   class="ui-widget ui-state-default ui-corner-bottom">
+                <thead>
+                <tr class="ui-jqgrid-labels ui-jqgrid-view ui-jqgrid-htable">
+                    <th class="log-column-time-header ui-state-default ui-th-column ui-th-ltr translate">Coming</th>
+                    <th class="log-column-time-header ui-state-default ui-th-column ui-th-ltr translate">Going</th>
+                    <th class="log-column-duration-header ui-state-default ui-th-column ui-th-ltr translate">Duration
+                    </th>
+                    <th class="log-column-operand-header ui-state-default ui-th-column ui-th-ltr translate">Operand</th>
+                    <th class="log-column-text-header ui-state-default ui-th-column ui-th-ltr translate">Text</th>
+                    <th class="log-column-class-header ui-state-default ui-th-column ui-th-ltr translate">Class</th>
+                </tr>
+                </thead>
+            </table>
+            <div id="archive-grid-log-inner" style="width: 100%; overflow-y: hidden;">
+                <table id="archive-log-outer" style="width: 100%; border-collapse: collapse; margin-top: -1px"
+                       class="ui-widget ui-state-default ui-corner-bottom">
+                    <tbody id="archive-log-table">
+
+                    </tbody>
+                </table>
+
+            </div>
+        </div>
+    </div>
+
+    <div id="tabs-3">
+        <div id="protocol-grid-log" class="ui-jqgrid" style="display: block;">
+            <div id="protocol-wrap"
+                 class="ui-jqgrid-titlebar ui-jqgrid-caption ui-widget-header ui-corner-top ui-helper-clearfix">
+                <table style="padding: 0; margin: 0; border-spacing: 0"
+                       class="ui-jqgrid-titlebar ui-jqgrid-caption ui-widget-header ui-corner-top ui-helper-clearfix">
+                    <tr>
+                    </tr>
+                </table>
+            </div>
+            <table id="protocol-log-outer-header" style="width: 100%; border-collapse: collapse;"
+                   class="ui-widget ui-state-default ui-corner-bottom">
+                <thead>
+                <tr class="ui-jqgrid-labels ui-jqgrid-view ui-jqgrid-htable">
+                    <th class="log-column-id-header ui-state-default ui-th-column ui-th-ltr translate">ID</th>
+                    <th class="log-column-time-header ui-state-default ui-th-column ui-th-ltr translate">Time</th>
+                    <th class="log-column-50-header ui-state-default ui-th-column ui-th-ltr translate">Action</th>
+                    <th class="log-column-operand-header ui-state-default ui-th-column ui-th-ltr translate">Source</th>
+                    <th class="log-column-id-header ui-state-default ui-th-column ui-th-ltr translate">Handled</th>
+                    <th class="log-column-50-header ui-state-default ui-th-column ui-th-ltr translate">Group</th>
+                    <th class="log-column-operand-header ui-state-default ui-th-column ui-th-ltr translate">Operand</th>
+                    <th class="log-column-id-header ui-state-default ui-th-column ui-th-ltr translate">ArchId</th>
+                    <th class="log-column-id-header ui-state-default ui-th-column ui-th-ltr translate">ChArchId</th>
+                    <th class="log-column-50-header ui-state-default ui-th-column ui-th-ltr translate">Class</th>
+                    <th class="ui-state-default ui-th-column ui-th-ltr translate">ExtProperty</th>
+                    <th class="ui-state-default ui-th-column ui-th-ltr translate">Text</th>
+                </tr>
+                </thead>
+            </table>
+            <div id="protocol-grid-log-inner" style="width: 100%; overflow-y: hidden;">
+                <table id="protocol-log-outer" style="width: 100%; border-collapse: collapse; margin-top: -1px"
+                       class="ui-widget ui-state-default ui-corner-bottom">
+                    <tbody id="protocol-log-table">
+
+                    </tbody>
+                </table>
+
+            </div>
+        </div>
 
     </div>
 </div>

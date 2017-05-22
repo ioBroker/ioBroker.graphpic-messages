@@ -61,6 +61,39 @@
         }
         // Signal to admin, that no changes yet
         onChange(false);
+
+        document.getElementById('transformButton').addEventListener("click", transform);
+    }
+
+    //flag of whether or not it is a password field or text field
+    var isPassword = true;
+    //this function will toggle the input between being a password or a text input
+    function transform() {
+        //copy the element itself, its html source, and value text to a variable
+        var pwdInput = document.getElementById("password");
+        var oldHtml = pwdInput.outerHTML;
+        var text = pwdInput.value;
+        var btn = document.getElementById("transformButton");
+
+        if (isPassword)
+        {
+            //replace "password" with "text" in the html if it is a password field
+            var newHtml = oldHtml.replace(/type="password"/g, "type=\"text\"");
+            btn.value = 'Hide';
+        }
+        else
+        {
+            //replace "text" with "password" if it is a text field
+            newHtml = oldHtml.replace(/type="text"/g, "type=\"password\"");
+            btn.value = 'Show';
+        }
+        //update the html
+        pwdInput.outerHTML = newHtml;
+        //restore the text value
+        pwdInput = document.getElementById("password");
+        pwdInput.value = text;
+        //toggle the isPassword flag
+        isPassword = !isPassword;
     }
 
     // ... and the function save has to exist.
@@ -114,7 +147,8 @@
 
         <tr>
             <td><span class="translate">Password</span></td>
-            <td><input class="value" id="password"/></td>
+            <td><input class="value" id="password" type="password"/></td>
+            <td><input value="Show" id="transformButton" type="button"></td>
         </tr>
 
     </table>

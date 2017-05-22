@@ -9,7 +9,7 @@ function Messages(main) {
     this.currentId = null;
     this.engines = [];
     this.instance = null;
-
+    this.alive = false;
     this.prepare = function () {
     };
 
@@ -70,9 +70,31 @@ function Messages(main) {
         }
     }
 
+    this.setAlive = function (alive) {
+        if (alive) {
+            $('#connecting').hide();
+
+        }
+        else {
+            $('#connecting').show();
+        }
+
+        if (!this.alive && alive) {
+            this.getData(false);
+            // this.getTotal();
+            // this.getPage(this.currentPage);
+        }
+
+        this.alive = alive;
+
+    };
 
     this.sendTo = function (message, payload, callback) {
+        var that = this;
         this.main.socket.emit('sendTo', this.main.instanceFullName, message, payload, function (response) {
+
+            that.setAlive(true);
+
             setTimeout(function () {
                 if (response.error) {
                     // handle error
@@ -81,31 +103,6 @@ function Messages(main) {
                 }
                 callback && callback(response);
             }, 0);
-        });
-    };
-
-    var gotResponse = 0;
-    this.pingAdapter = function () {
-        var callItself = function () {
-            setTimeout(function () {
-                that.pingAdapter();
-            }, 1000);
-        };
-
-        setTimeout(function () {
-            if (gotResponse === 0) {
-                $('#connecting').show();
-                callItself();
-            }
-            else {
-                $('#connecting').hide();
-            }
-        }, 2000);
-        gotResponse = 0;
-        var that = this;
-        this.main.socket.emit('sendTo', this.main.instanceFullName, 'ping', {}, function (response) {
-            gotResponse = 1;
-            callItself();
         });
     };
 
@@ -118,9 +115,48 @@ function Messages(main) {
             $('#log-table').html('');
             var size = response && response.value ? response.value.length : 0;
             for (var i = 0; i < size; i++) {
-                that.add(response.value[i]);
+                that.add(response.value[i], 'log-table');
             }
         });
+    };
+
+    this.getArchiveMessages = function () {
+        var that = this;
+        this.sendTo('getArchiveMessages', {}, function (response) {
+            $('#archive-log-table').html('');
+            var size = response && response.value ? response.value.length : 0;
+            for (var i = 0; i < size; i++) {
+                that.add(response.value[i], 'archive-log-table');
+            }
+        });
+    };
+
+    this.getProtocol = function () {
+        var that = this;
+        this.sendTo('getProtocol', {top: 1000}, function (response) {
+            $('#protocol-log-table').html('');
+            var size = response && response.value ? response.value.length : 0;
+            for (var i = 0; i < size; i++) {
+                that.addProtocolEntry(response.value[i], 'protocol-log-table');
+            }
+        });
+    };
+
+    this.getTotal = function () {
+        this.sendTo('getMessageCount', {}, function (response) {
+            $('#log-size').html('Total count:' + ' ' + response.value.totalCount);
+            updatePagination('max_page', response.value.pageCount);
+        });
+    };
+
+    this.getData = function (initial) {
+        initial = initial || true;
+        this.getTotal();
+        this.getPage(1);
+        if (initial) {
+            this.getArchiveMessages();
+            this.getProtocol();
+        }
     };
 
     this.init = function (update) {
@@ -136,22 +172,13 @@ function Messages(main) {
             this.main.instanceFullName = 'gp-msgs.' + this.instance;
         }
 
-        this.pingAdapter();
-        // $('#log-table').html('');
-        this.sendTo('getMessageCount', {}, function (response) {
-            var totalCount = response.value.totalCount;
-            $('#log-size').html('Total count:' + ' ' + totalCount);
-            paginationOptions.max_page = response.value.pageCount;
-            paginationOptions.paged = function (page) {
-                that.getPage(page);
-            };
-            createPagination(paginationOptions);
-            // updatePagination('max_page', response.value.pageCount);
-            that.getPage(1);
-        });
+        // this.getTotal();
+        // this.getPage(1);
+        // this.getArchiveMessages();
+        createPagination(paginationOptions);
     };
 
-    this.add = function (message) {
+    this.add = function (message, tableId) {
         // if (this.logPauseMode) {
         //     this.logPauseList.push(message);
         //     this.logPauseCounter++;
@@ -211,18 +238,91 @@ function Messages(main) {
         // text += '<td class="log-column-3">' + message.severity + '</td>';
         // text += '<td class="log-column-4" title="' + message.message.replace(/"/g, "'") + '">' + message.message.substring(0, 200) + '</td></tr>';
 
-        var text = '<tr id="log-line-' + message.ID + '" class="log-line">';
+        function decimalToHex(d, padding) {
+            var hex = Number(d).toString(16);
+            padding = typeof (padding) === "undefined" || padding === null ? padding = 6 : padding;
+
+            while (hex.length < padding) {
+                // hex = hex + '0';
+                hex = '0' + hex;
+            }
+
+            var start = padding - 2;
+            var end = padding;
+            var hex2return = '';
+            while (end >= 0) {
+                hex2return += hex.substring(start, end);
+                end = start;
+                start -= 2;
+            }
+
+            return hex2return;
+
+            // return hex;
+
+
+            // return ('00000' + (d | 0).toString(16)).substr(-6);
+        }
+
+        var style = '';
+        var hex;
+        if (message.hasOwnProperty('bc')) {
+            // hex = message.bc == 255 ? 'FF0000' : (message.bc + 0x1000000).toString(16).substr(-6).toUpperCase();
+            hex = decimalToHex(message.bc);
+            style = 'background-color: #' + hex + ';';
+        }
+        if (message.hasOwnProperty('fc')) {
+            // hex = message.fc == 255 ? 'FF0000' : (message.fc + 0x1000000).toString(16).substr(-6).toUpperCase();
+            hex = decimalToHex(message.fc);
+            style += 'color: #' + hex + ';';
+        }
+        var text = '<tr style="' + style + '" id="log-line-' + message.ID + '" class="log-line">';
         // text += '<td class="log-column-1">' + message.ID + '</td>';
-        text += '<td class="log-column-time">' + message.Coming.replace('T', ' ').replace('Z', '') + '</td>';
-        text += '<td class="log-column-time">' + message.Going.replace('T', ' ').replace('Z', '') + '</td>';
-        text += '<td class="log-column-duration">' + message.Duration + '</td>';
+
+        if (message.hasOwnProperty('Coming')) {
+            text += '<td class="log-column-time">' + message.Coming.replace('T', ' ').replace('Z', '') + '</td>';
+        }
+
+        if (message.hasOwnProperty('Going')) {
+            text += '<td class="log-column-time">' + (message.Going || 'null').replace('T', ' ').replace('Z', '') + '</td>';
+        }
+        if (message.hasOwnProperty('Duration')) {
+
+            text += '<td class="log-column-duration">' + message.Duration + '</td>';
+        }
+        if (message.hasOwnProperty('Group')) {
+            text += '<td class="log-column-group">' + message.Group + '</td>';
+        }
+
         text += '<td class="log-column-operand">' + message.Operand + '</td>';
-        text += '<td class="log-column" title="' + message.Text.replace(/"/g, "'") + '">' + message.Text.substring(0, 200) + '</td>';
-        text += '<td class="log-column-class log-severity-' + message.Class.toLocaleLowerCase() + '">' + message.Class + '</td></tr>';
+        text += '<td class="log-column" title="' + (message.Text || '').replace(/"/g, "'") + '">' + (message.Text || '').substring(0, 200) + '</td>';
+        text += '<td class="log-column-class">' + message.Class + '</td></tr>';
 
 
         // $('#log-table').prepend(text);
-        $('#log-table').append(text);
+        // $('#archive-log-table').append(text);
+        $('#' + tableId).append(text);
+    };
+
+    this.addProtocolEntry = function (message, tableId) {
+
+        var text = '<tr id="log-line-' + message.ID + '" class="log-line">';
+        text += '<td class="log-column-id">' + message.ID + '</td>';
+        text += '<td class="log-column-time">' + message.Time.replace('T', ' ').replace('Z', '') + '</td>';
+        text += '<td class="log-column-50">' + message.Action + '</td>';
+        text += '<td class="log-column-operand">' + message.Source + '</td>';
+        text += '<td class="log-column-id">' + message.Handled + '</td>';
+        text += '<td class="log-column-50">' + message.Group + '</td>';
+        text += '<td class="log-column-operand">' + message.Operand + '</td>';
+        text += '<td class="log-column-id">' + (message.ArchId || '').toString().replace('null', '') + '</td>';
+        text += '<td class="log-column-id">' + (message.ChangedArchId || '').toString().replace('null', '') + '</td>';
+        text += '<td class="log-column-50">' + (message.Class || '').toString().replace('null', '') + '</td>';
+        text += '<td class="log-column" title="' + (message.ExtProperty || '').replace(/"/g, "'") + '">' + (message.ExtProperty || '').substring(0, 200) + '</td>';
+        text += '<td class="log-column" title="' + (message.Text || '').replace(/"/g, "'") + '">' + (message.Text || '').substring(0, 200) + '</td>';
+
+        text += '</tr>';
+
+        $('#' + tableId).append(text);
     };
 
     this.objectChange = function (id, obj) {
@@ -323,10 +423,8 @@ function Messages(main) {
 
     };
 }
-var paginationOptions = {
-    current_page: 1,
-    page_string: '{current_page} / {max_page}'
-};
+
+
 var updatePagination = function (key, value) {
     $('.pagination').jqPagination('option', key, value)
 };
@@ -421,41 +519,12 @@ var main = {
         $dialogConfirm.data('callback', callback);
         $dialogConfirm.dialog('open');
     },
-    initSelectId: function () {
-        if (main.selectId) return main.selectId;
-        main.selectId = $('#dialog-select-member').selectId('init', {
-            objects: main.objects,
-            states: main.states,
-            noMultiselect: true,
-            imgPath: '../../lib/css/fancytree/',
-            filter: {type: 'state'},
-            texts: {
-                select: _('Select'),
-                cancel: _('Cancel'),
-                all: _('All'),
-                id: _('ID'),
-                name: _('Name'),
-                role: _('Role'),
-                room: _('Room'),
-                value: _('Value'),
-                selectid: _('Select ID'),
-                from: _('From'),
-                lc: _('Last changed'),
-                ts: _('Time stamp'),
-                wait: _('Processing...'),
-                ack: _('Acknowledged')
-            },
-            columns: ['image', 'name', 'role', 'room', 'value']
-        });
-        return main.selectId;
-    },
     objects: {},
     states: {},
     instanceFullName: '',
     instances: [],
     objectsLoaded: false,
-    waitForRestart: false,
-    selectId: null
+    waitForRestart: false
 };
 
 var $dialogMessage = $('#dialog-message');
@@ -480,7 +549,14 @@ if (typeof storage != 'undefined') {
 }
 var firstConnect = true;
 var scripts = new Messages(main);
-
+var paginationOptions = {
+    current_page: 1,
+    page_string: '{current_page} / {max_page}',
+    max_page: 1,
+    paged: function (page) {
+        scripts.getPage(page);
+    }
+};
 function getStates(callback) {
     main.socket.emit('getStates', function (err, res) {
         main.states = res;
@@ -583,14 +659,21 @@ function objectChange(id, obj) {
 }
 
 function stateChange(id, state) {
-
-    if (main.instanceFullName && id && id.indexOf(main.instanceFullName) !== -1 && id.indexOf('pageChanged') !== -1) {
-        console.log('Page change:' + JSON.stringify(state));
-        if (state.val == scripts.currentPage) {
-            scripts.getPage(scripts.currentPage);
+    // console.log('state change for id: ' + id);
+    if (main.instanceFullName && id && id.indexOf(main.instanceFullName) !== -1) {
+        if (id.indexOf('pageChanged') !== -1) {
+            console.log('Page change:' + JSON.stringify(state));
+            if (state.val == scripts.currentPage) {
+                scripts.getPage(scripts.currentPage);
+            }
+        } else if (id.indexOf('totalChanged') !== -1) {
+            console.log('Total change:' + JSON.stringify(state));
+            scripts.getTotal();
+        } else if (id.indexOf('alive') !== -1) {
+            console.log('Alive change:' + JSON.stringify(state));
+            scripts.setAlive(state.val);
         }
     }
-
     // var rowData;
     // id = id ? id.replace(/[\s'"]/g, '_') : '';
     //
@@ -612,7 +695,7 @@ main.socket.on('stateChange', function (id, obj) {
     setTimeout(stateChange, 0, id, obj);
 });
 main.socket.on('connect', function () {
-    $('#connecting').hide();
+    // $('#connecting').hide();
     if (firstConnect) {
         firstConnect = false;
 
