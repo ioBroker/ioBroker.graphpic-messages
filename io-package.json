@@ -1,43 +1,44 @@
 {
   "common": {
-    "name": "gp-msgs",
-    "version": "0.5.0",
-    "title": "gp-msgs adapter",
+    "name":     "graphpic-messages",
+    "version":  "0.5.0",
+    "title":    "Graphpic messages adapter",
     "desc": {
-      "en": "ioBroker gp-msgs Adapter",
-      "de": "ioBroker gp-msgs Adapter",
-      "ru": "ioBroker gp-msgs драйвер"
+      "en":     "ioBroker Graphpic messages Adapter",
+      "de":     "ioBroker Graphpic messages Adapter",
+      "ru":     "ioBroker Graphpic messages драйвер"
     },
     "platform": "Javascript/Node.js",
-    "mode": "daemon",
-    "icon": "gp-msgs.png",
-    "enabled": true,
-    "extIcon": "https://raw.githubusercontent.com/ioBroker/ioBroker.gp-msgs/master/admin/gp-msgs.png",
+    "mode":     "daemon",
+    "icon":     "graphpic-messages.png",
+    "enabled":  true,
+    "extIcon":  "https://raw.githubusercontent.com/ioBroker/ioBroker.graphpic-messages/master/admin/graphpic-messages.png",
     "keywords": [
-      "gp-msgs",
+      "graphpic",
       "vis",
       "GUI",
       "graphical",
       "scada"
     ],
     "adminTab": {
-      "name":                 "Messages"
+      "name":     "Messages"
     },
+    "license":    "CC-BY-NC-4.0",
     "messagebox": true,
-    "readme": "https://github.com/ioBroker/ioBroker.gp-msgs/blob/master/README.md",
-    "loglevel": "info",
-    "type": "common adapters",
+    "readme":     "https://github.com/ioBroker/ioBroker.graphpic-messages/blob/master/README.md",
+    "loglevel":   "info",
+    "type":       "common adapters",
     "restartAdapters": [
       "vis"
     ]
   },
   "native": {
-    "server": "localhost",
-    "instance": "GRAPHPIC",
-    "port": 1433,
-    "database": "iobrokerdb",
-    "user": "iobroker",
-    "password": "iobroker"
+    "server":     "localhost",
+    "instance":   "GRAPHPIC",
+    "port":       1433,
+    "database":   "iobrokerdb",
+    "user":       "iobroker",
+    "password":   "iobroker"
   },
   "objects": [
   ]

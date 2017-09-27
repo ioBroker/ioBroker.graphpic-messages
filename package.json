@@ -1,10 +1,10 @@
 {
-  "name": "iobroker.gp-msgs",
+  "name": "iobroker.graphpic-messages",
   "version": "0.5.0",
-  "description": "ioBroker gp-msgs Adapter",
+  "description": "ioBroker Graphpic messages Adapter",
   "author": {
-    "name": "gh-god",
-    "email": "mail@mail.com"
+    "name": "bluefox",
+    "email": "dogafox@gmail.com"
   },
   "contributors": [
     {
@@ -12,17 +12,15 @@
       "email": "mail@mail.com"
     }
   ],
-  "homepage": "https://github.com/ioBroker/ioBroker.gp-msgs",
-  "license": "MIT",
+  "homepage": "https://github.com/ioBroker/ioBroker.graphpic-messages",
+  "license": "CC-BY-NC-4.0",
   "keywords": [
     "ioBroker",
-    "gp-msgs",
-    "Smart Home",
-    "home automation"
+    "graphpic"
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/ioBroker/ioBroker.gp-msgs"
+    "url": "https://github.com/ioBroker/ioBroker.graphpic-messages"
   },
   "dependencies": {
     "mssql": "^3.3.0",
@@ -40,7 +38,7 @@
     "grunt-exec": "^0.4.6"
   },
   "bugs": {
-    "url": "https://github.com/ioBroker/ioBroker.gp-msgs/issues"
+    "url": "https://github.com/ioBroker/ioBroker.graphpic-messages/issues"
   },
   "readmeFilename": "README.md"
 }

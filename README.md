@@ -1,4 +1,4 @@
-![Logo](admin/gp-msgs.png)
+![Logo](admin/graphpic-messages.png)
 # ioBroker.gp-msgs
 =================
 
